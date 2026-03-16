@@ -1,0 +1,87 @@
+# ================================
+# Environment & Secrets
+# ================================
+.env
+.env.*
+!.env.example
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+pip-wheel-metadata/
+MANIFEST
+
+# ================================
+# Virtual Environments
+# ================================
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# ================================
+# Testing
+# ================================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+*.cover
+
+# ================================
+# Alembic
+# ================================
+# Keep alembic.ini and migrations tracked, but ignore local overrides
+alembic/versions/*.pyc
+
+# ================================
+# Database
+# ================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ================================
+# Logs
+# ================================
+*.log
+logs/
+
+# ================================
+# IDEs & Editors
+# ================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# ================================
+# Misc
+# ================================
+*.bak
+*.swp
+*.tmp
+.cache/
+https:/
