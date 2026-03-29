@@ -1,9 +1,20 @@
-from sqlalchemy import Column, Integer, String
-from .database import Base
+from sqlalchemy import Column, Text, DateTime, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+from app.db.database import Base
+
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    email = Column(Text, nullable=False, unique=True)
+    full_name = Column(Text)
+    avatar_url = Column(Text)
+    role = Column(Text, default="user")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("role = ANY (ARRAY['user', 'admin'])", name="ck_users_role"),
+    )
