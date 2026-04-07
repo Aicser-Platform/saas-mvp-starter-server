@@ -9,7 +9,9 @@ class CourseBase(BaseModel):
     description: Optional[str] = None
     content: Optional[str] = None
     difficulty: Optional[str] = None
-    required_plan_id: Optional[UUID] = None
+    # We accept and return required_tier for frontend convenience.
+    # The CRUD layer handles mapping this to plans.id
+    required_tier: Optional[str] = "free"
     thumbnail_url: Optional[str] = None
     video_url: Optional[str] = None
     resources: Optional[List[Any]] = []
@@ -24,7 +26,7 @@ class CourseUpdate(BaseModel):
     description: Optional[str] = None
     content: Optional[str] = None
     difficulty: Optional[str] = None
-    required_plan_id: Optional[UUID] = None
+    required_tier: Optional[str] = None
     thumbnail_url: Optional[str] = None
     video_url: Optional[str] = None
     resources: Optional[List[Any]] = None

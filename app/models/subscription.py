@@ -13,6 +13,10 @@ class Subscription(Base):
     plan_id = Column(UUID(as_uuid=True), ForeignKey("plans.id"), nullable=False)
 
     status = Column(Text, nullable=False)  # active, canceled, past_due, trialing
+
+    # Payment provider's subscription reference (e.g. Stripe sub_xxx)
+    provider_subscription_id = Column(Text)
+
     current_period_start = Column(DateTime(timezone=True))
     current_period_end = Column(DateTime(timezone=True))
 

@@ -7,11 +7,12 @@ from app.db.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True)  # Same as Supabase Auth UID
     email = Column(Text, nullable=False, unique=True)
     full_name = Column(Text)
     avatar_url = Column(Text)
-    role = Column(Text, default="user")
+    role = Column(Text, default="user")  # user | admin
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

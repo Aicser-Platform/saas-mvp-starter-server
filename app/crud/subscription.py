@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.models.subscription import Subscription
+from app.models.plan import Plan
 from app.schemas.subscription import SubscriptionCreate, SubscriptionUpdate
 
 
@@ -10,6 +11,28 @@ def get_subscription(db: Session, subscription_id: UUID):
 
 def get_subscriptions_by_user(db: Session, user_id: UUID, skip: int = 0, limit: int = 100):
     return db.query(Subscription).filter(Subscription.user_id == user_id).offset(skip).limit(limit).all()
+
+
+def get_active_subscription_by_user(db: Session, user_id: UUID):
+    """Return the user's current active (or trialing/past_due) subscription."""
+    return (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user_id,
+            Subscription.status.in_(["active", "trialing", "past_due"]),
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+
+
+def get_subscription_by_provider_id(db: Session, provider_subscription_id: str):
+    """Find a subscription by its Stripe sub_xxx ID."""
+    return (
+        db.query(Subscription)
+        .filter(Subscription.provider_subscription_id == provider_subscription_id)
+        .first()
+    )
 
 
 def create_subscription(db: Session, subscription: SubscriptionCreate):

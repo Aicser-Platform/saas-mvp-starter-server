@@ -21,9 +21,18 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
 
 
-
 class UserResponse(UserBase):
+    """
+    Core user fields.
+    Subscription & billing data is populated by the endpoint
+    via joins to the subscriptions and billing_accounts tables
+    so the frontend gets a convenient flat view.
+    """
     id: UUID
+    # Computed from related tables (not stored on users table)
+    subscription_tier: Optional[str] = "free"
+    subscription_status: Optional[str] = "inactive"
+    stripe_customer_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

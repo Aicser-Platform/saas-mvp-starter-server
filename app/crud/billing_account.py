@@ -12,6 +12,35 @@ def get_billing_accounts_by_user(db: Session, user_id: UUID, skip: int = 0, limi
     return db.query(BillingAccount).filter(BillingAccount.user_id == user_id).offset(skip).limit(limit).all()
 
 
+def get_billing_account_by_user_and_provider(db: Session, user_id: UUID, provider: str):
+    """Return the billing account for a user/provider combo (e.g. user + 'stripe')."""
+    return (
+        db.query(BillingAccount)
+        .filter(BillingAccount.user_id == user_id, BillingAccount.provider == provider)
+        .first()
+    )
+
+
+def get_billing_account_by_customer_id(db: Session, customer_id: str):
+    """Find a billing account by provider customer ID (e.g. Stripe cus_xxx)."""
+    return db.query(BillingAccount).filter(BillingAccount.customer_id == customer_id).first()
+
+
+def upsert_billing_account(db: Session, user_id: UUID, provider: str, customer_id: str):
+    """Create or update a billing account for a user/provider pair."""
+    existing = get_billing_account_by_user_and_provider(db, user_id, provider)
+    if existing:
+        existing.customer_id = customer_id
+        db.commit()
+        db.refresh(existing)
+        return existing
+    new_account = BillingAccount(user_id=user_id, provider=provider, customer_id=customer_id)
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account
+
+
 def create_billing_account(db: Session, billing_account: BillingAccountCreate):
     db_billing_account = BillingAccount(**billing_account.model_dump())
     db.add(db_billing_account)
