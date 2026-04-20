@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from uuid import UUID, uuid4
 from typing import List
+from pydantic import BaseModel
 import os
 import shutil
 
@@ -76,32 +77,68 @@ def delete_lesson(
     return lesson
 
 
-@router.post("/upload", summary="Upload video or PDF for a lesson")
+# ── Batch reorder (for drag-and-drop) ────────────────────────────────────────
+
+class ReorderRequest(BaseModel):
+    course_id: UUID
+    lesson_ids: List[UUID]  # ordered list
+
+
+@router.post("/reorder", summary="Batch-reorder lessons for a course")
+def reorder_lessons(
+    payload: ReorderRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """
+    Accept an ordered list of lesson IDs and set their order_index accordingly.
+    """
+    for index, lesson_id in enumerate(payload.lesson_ids):
+        lesson = crud_lesson.get_lesson(db, lesson_id)
+        if lesson and str(lesson.course_id) == str(payload.course_id):
+            lesson.order_index = index
+    db.commit()
+    return {"status": "ok", "order": [str(lid) for lid in payload.lesson_ids]}
+
+
+# ── File upload ──────────────────────────────────────────────────────────────
+
+@router.post("/upload", summary="Upload video, document, or image for a lesson")
 async def upload_lesson_file(
     file: UploadFile = File(...),
     _admin: User = Depends(get_current_admin),
 ):
     """
-    Upload a video (.mp4, .webm) or PDF file for a lesson.
-    Returns the file URL that can be stored in lesson.video_url or lesson.pdf_url.
+    Upload a video (.mp4, .webm, .ogg, .mov, .wmv), document (.pdf, .doc, .docx),
+    or image (.jpg, .png, .webp, .gif) for a lesson.
+    Returns the file URL that can be stored in lesson fields.
     """
     allowed_types = {
+        # Video
         "video/mp4", "video/webm", "video/ogg",
+        "video/quicktime",       # .mov
+        "video/x-ms-wmv",        # .wmv
+        # Documents
         "application/pdf",
+        "application/msword",    # .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        # Images
+        "image/jpeg", "image/png", "image/webp", "image/gif",
     }
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{file.content_type}' not allowed. Use MP4, WebM, OGG video or PDF."
+            detail=f"File type '{file.content_type}' not allowed. "
+                   f"Supported: MP4, WebM, OGG, MOV, WMV, PDF, DOC, DOCX, JPG, PNG, WebP, GIF."
         )
 
-    ext = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"{uuid4()}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    from app.core.storage import get_storage_backend, AzureBlobStorageBackend
+    storage = get_storage_backend()
+    result = await storage.upload(file)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # For Azure: return a proxy URL that goes through our signed-URL endpoint
+    # so the browser never hits the raw blob URL (which requires public access)
+    if isinstance(storage, AzureBlobStorageBackend) and "blob_name" in result:
+        result["url"] = f"/api/v1/files/{result['blob_name']}"
 
-    # Return a URL that can be served via FastAPI's static files
-    file_url = f"/uploads/{unique_filename}"
-    return JSONResponse({"url": file_url, "filename": unique_filename, "content_type": file.content_type})
+    return JSONResponse(result)

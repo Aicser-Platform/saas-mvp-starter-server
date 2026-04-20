@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Text, DateTime, CheckConstraint, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -15,8 +15,6 @@ class Course(Base):
     difficulty = Column(Text)  # beginner, intermediate, advanced
     required_plan_id = Column(UUID(as_uuid=True), ForeignKey("plans.id"))
     thumbnail_url = Column(Text)
-    video_url = Column(Text)
-    resources = Column(JSONB, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

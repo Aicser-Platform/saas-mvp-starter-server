@@ -8,7 +8,8 @@ from app.api.v1.endpoints import (
     billing_accounts, 
     lessons, 
     course_progress, 
-    lesson_progress
+    lesson_progress,
+    files
 )
 
 api_router = APIRouter()
@@ -21,3 +22,4 @@ api_router.include_router(billing_accounts.router)
 api_router.include_router(lessons.router)
 api_router.include_router(course_progress.router)
 api_router.include_router(lesson_progress.router)
+api_router.include_router(files.router)

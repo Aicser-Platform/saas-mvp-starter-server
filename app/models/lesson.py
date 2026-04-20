@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -15,6 +15,7 @@ class Lesson(Base):
     content = Column(Text)
     video_url = Column(Text)
     order_index = Column(Integer, default=0)
+    resources = Column(JSONB, default=list)  # [{title, url, type}]
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

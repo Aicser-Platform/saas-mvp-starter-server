@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
@@ -13,8 +13,6 @@ class CourseBase(BaseModel):
     # The CRUD layer handles mapping this to plans.id
     required_tier: Optional[str] = "free"
     thumbnail_url: Optional[str] = None
-    video_url: Optional[str] = None
-    resources: Optional[List[Any]] = []
 
 
 class CourseCreate(CourseBase):
@@ -28,8 +26,6 @@ class CourseUpdate(BaseModel):
     difficulty: Optional[str] = None
     required_tier: Optional[str] = None
     thumbnail_url: Optional[str] = None
-    video_url: Optional[str] = None
-    resources: Optional[List[Any]] = None
 
 
 class CourseResponse(CourseBase):
