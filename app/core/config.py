@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     INTERNAL_API_SECRET: str = "stripe-webhook-internal-secret-2024"
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     class Config:
         env_file = ".env"
         extra = "allow"

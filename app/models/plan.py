@@ -13,6 +13,7 @@ class Plan(Base):
     price = Column(Integer, nullable=False)  # in cents
     currency = Column(Text, nullable=False, default="usd")  # usd, khr
     interval = Column(Text, nullable=False)  # monthly, yearly
+    stripe_price_id = Column(Text, nullable=True)
 
     # limits
     max_requests = Column(Integer)
