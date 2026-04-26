@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
+    # Bakong KHQR
+    BAKONG_TOKEN: str = ""
+    BAKONG_ACCOUNT: str = ""  # e.g. yourname@acleda
+
     class Config:
         env_file = ".env"
         extra = "allow"
