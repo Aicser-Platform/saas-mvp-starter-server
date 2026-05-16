@@ -13,6 +13,7 @@ class CourseBase(BaseModel):
     # The CRUD layer handles mapping this to plans.id
     required_tier: Optional[str] = "free"
     thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
 
 
 class CourseCreate(CourseBase):
@@ -26,6 +27,7 @@ class CourseUpdate(BaseModel):
     difficulty: Optional[str] = None
     required_tier: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
 
 
 class CourseResponse(CourseBase):

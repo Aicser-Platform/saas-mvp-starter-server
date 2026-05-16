@@ -15,8 +15,12 @@ def get_plan_id_by_name(db: Session, tier_name: str):
 def _enrich_course(course: Course):
     """Map required_plan.name back to required_tier for the response."""
     d = {c.name: getattr(course, c.name) for c in course.__table__.columns}
-    d["required_tier"] = course.required_plan.name if course.required_plan else "free"
+    # Always return lowercase so frontend tier maps (free/pro/premium) match
+    d["required_tier"] = course.required_plan.name.lower() if course.required_plan else "free"
+    # Ensure category is included (may be None if not set)
+    d["category"] = course.category
     return d
+
 
 
 def get_course(db: Session, course_id: UUID):

@@ -15,6 +15,7 @@ class Course(Base):
     difficulty = Column(Text)  # beginner, intermediate, advanced
     required_plan_id = Column(UUID(as_uuid=True), ForeignKey("plans.id"))
     thumbnail_url = Column(Text)
+    category = Column(Text)  # e.g. Programming, AI & Machine Learning, DevOps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

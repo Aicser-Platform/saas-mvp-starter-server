@@ -7,6 +7,7 @@ from .billing_account import BillingAccount
 from .lesson import Lesson
 from .course_progress import CourseProgress
 from .lesson_progress import LessonProgress
+from .category import Category
 
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "BillingAccount", 
     "Lesson", 
     "CourseProgress", 
-    "LessonProgress"
+    "LessonProgress",
+    "Category",
 ]

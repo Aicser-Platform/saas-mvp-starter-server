@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     files,
     stripe,
     bakong,
+    categories,
 )
 
 api_router = APIRouter()
@@ -27,4 +28,5 @@ api_router.include_router(lesson_progress.router)
 api_router.include_router(files.router)
 api_router.include_router(stripe.router)
 api_router.include_router(bakong.router)
+api_router.include_router(categories.router)
 
