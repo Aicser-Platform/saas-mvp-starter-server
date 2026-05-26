@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.models.course import Course
+from app.models.lesson import Lesson
+from app.models.lesson_progress import LessonProgress
+from app.models.course_progress import CourseProgress
 from app.models.plan import Plan
 from app.schemas.course import CourseCreate, CourseUpdate
 
@@ -65,9 +68,19 @@ def update_course(db: Session, course_id: UUID, updates: CourseUpdate):
 
 def delete_course(db: Session, course_id: UUID):
     db_course = db.query(Course).filter(Course.id == course_id).first()
-    if db_course:
-        enriched = _enrich_course(db_course)
-        db.delete(db_course)
-        db.commit()
-        return enriched
-    return None
+    if not db_course:
+        return None
+
+    enriched = _enrich_course(db_course)
+
+    # Delete in FK-dependency order to avoid constraint violations:
+    # 1. lesson_progress → lessons → course
+    # 2. course_progress → course
+    lesson_ids = db.query(Lesson.id).filter(Lesson.course_id == course_id).subquery()
+    db.query(LessonProgress).filter(LessonProgress.lesson_id.in_(lesson_ids)).delete(synchronize_session=False)
+    db.query(Lesson).filter(Lesson.course_id == course_id).delete(synchronize_session=False)
+    db.query(CourseProgress).filter(CourseProgress.course_id == course_id).delete(synchronize_session=False)
+
+    db.delete(db_course)
+    db.commit()
+    return enriched
