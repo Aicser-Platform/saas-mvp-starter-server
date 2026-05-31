@@ -17,6 +17,17 @@ def get_payments(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_payment(db: Session, payment: PaymentCreate):
+    # Idempotent: Stripe can deliver overlapping events (e.g. checkout.session.completed
+    # and invoice.payment_succeeded) or retry webhooks. provider_payment_id is unique,
+    # so return the existing row instead of raising an integrity error.
+    existing = (
+        db.query(Payment)
+        .filter(Payment.provider_payment_id == payment.provider_payment_id)
+        .first()
+    )
+    if existing:
+        return existing
+
     db_payment = Payment(**payment.model_dump())
     db.add(db_payment)
     db.commit()

@@ -34,7 +34,7 @@ def _enrich_user(user: User, db: Session) -> Dict[str, Any]:
         "created_at": user.created_at,
         "updated_at": user.updated_at,
         # Computed from related tables
-        "subscription_tier": (active_sub.plan.name if active_sub and active_sub.plan else "free"),
+        "subscription_tier": (active_sub.plan.name.lower() if active_sub and active_sub.plan else "free"),
         "subscription_status": (active_sub.status if active_sub else "inactive"),
         "stripe_customer_id": (billing.customer_id if billing else None),
     }

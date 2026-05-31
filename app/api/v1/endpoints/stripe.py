@@ -20,6 +20,7 @@ from app.models.user import User
 from app.crud import subscription as crud_subscription
 from app.crud import billing_account as crud_billing
 from app.crud import plan as crud_plan
+from app.schemas.subscription import SubscriptionUpdate
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
@@ -36,6 +37,17 @@ class CreateCheckoutResponse(BaseModel):
 
 class CreatePortalResponse(BaseModel):
     portal_url: str
+
+
+class InvoiceResponse(BaseModel):
+    id: str
+    number: Optional[str] = None
+    created: Optional[str] = None  # ISO timestamp
+    amount_paid: int
+    currency: str
+    status: Optional[str] = None
+    hosted_invoice_url: Optional[str] = None
+    invoice_pdf: Optional[str] = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -145,7 +157,7 @@ def create_checkout_session(
             },
         ],
         mode="subscription",
-        success_url=f"{frontend_url}/dashboard?subscription=success",
+        success_url=f"{frontend_url}/dashboard/subscription/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{frontend_url}/dashboard/subscription?canceled=true",
         metadata={
             "userId": str(current_user.id),
@@ -188,7 +200,106 @@ def create_portal_session(
 
     session = s.billing_portal.Session.create(
         customer=billing.customer_id,
-        return_url=f"{frontend_url}/dashboard/subscription",
+        return_url=f"{frontend_url}/dashboard/billing",
     )
 
     return CreatePortalResponse(portal_url=session.url)
+
+
+@router.get("/invoices", response_model=list[InvoiceResponse])
+def list_invoices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List the current user's Stripe invoices (live from Stripe) so the Billing
+    page can show date / total / status and link to the hosted invoice + PDF.
+    """
+    from datetime import datetime, timezone
+
+    billing = crud_billing.get_billing_account_by_user_and_provider(db, current_user.id, "stripe")
+    if not billing or not billing.customer_id:
+        return []
+
+    s = _get_stripe()
+    invoices = s.Invoice.list(customer=billing.customer_id, limit=50)
+
+    result = []
+    for inv in invoices.auto_paging_iter():
+        created_iso = (
+            datetime.fromtimestamp(inv.created, tz=timezone.utc).isoformat()
+            if getattr(inv, "created", None)
+            else None
+        )
+        result.append(
+            InvoiceResponse(
+                id=inv.id,
+                number=getattr(inv, "number", None),
+                created=created_iso,
+                amount_paid=getattr(inv, "amount_paid", 0) or 0,
+                currency=getattr(inv, "currency", "usd") or "usd",
+                status=getattr(inv, "status", None),
+                hosted_invoice_url=getattr(inv, "hosted_invoice_url", None),
+                invoice_pdf=getattr(inv, "invoice_pdf", None),
+            )
+        )
+
+    return result
+
+
+@router.post("/cancel-subscription")
+def cancel_subscription(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Schedule the user's active subscription to cancel at the end of the current
+    billing period. The user keeps full access until that date, then reverts to free.
+    """
+    sub = crud_subscription.get_active_subscription_by_user(db, current_user.id)
+    if not sub or not sub.provider_subscription_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No active subscription found."
+        )
+
+    from datetime import datetime, timezone
+
+    s = _get_stripe()
+    stripe_sub = s.Subscription.modify(sub.provider_subscription_id, cancel_at_period_end=True)
+
+    period_end = None
+    if getattr(stripe_sub, "current_period_end", None):
+        period_end = datetime.fromtimestamp(stripe_sub.current_period_end, tz=timezone.utc)
+
+    crud_subscription.update_subscription(
+        db, sub.id, SubscriptionUpdate(
+            cancel_at_period_end=True,
+            current_period_end=period_end,
+        )
+    )
+    return {"message": "Subscription will cancel at the end of the billing period."}
+
+
+@router.post("/resume-subscription")
+def resume_subscription(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Remove the scheduled cancellation and keep the subscription renewing normally.
+    """
+    sub = crud_subscription.get_active_subscription_by_user(db, current_user.id)
+    if not sub or not sub.provider_subscription_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No active subscription found."
+        )
+
+    s = _get_stripe()
+    s.Subscription.modify(sub.provider_subscription_id, cancel_at_period_end=False)
+
+    crud_subscription.update_subscription(
+        db, sub.id, SubscriptionUpdate(cancel_at_period_end=False)
+    )
+    return {"message": "Subscription renewal resumed."}
