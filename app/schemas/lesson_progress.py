@@ -31,3 +31,13 @@ class LessonProgressResponse(LessonProgressBase):
 
     class Config:
         from_attributes = True
+
+
+class LessonProgressUpsert(BaseModel):
+    lesson_id: UUID
+    watched_seconds: int
+    total_duration_seconds: int
+
+
+class LessonProgressMarkComplete(BaseModel):
+    lesson_id: UUID
