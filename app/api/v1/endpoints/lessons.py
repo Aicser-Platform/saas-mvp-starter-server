@@ -34,22 +34,23 @@ def list_lessons_by_course(
     current_user: User = Depends(get_current_user),
 ):
     """List lessons for a course. Gated by the parent course's required tier."""
-    course = crud_course.get_course(db, course_id)
-    if course:
-        required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
-        required_level = TIER_LEVELS.get(required_tier.lower(), 0)
-        if required_level > 0:
-            user_tier = get_user_tier(db, current_user)
-            user_level = TIER_LEVELS.get(user_tier, 0)
-            if user_level < required_level:
-                raise HTTPException(
-                    status_code=403,
-                    detail={
-                        "message": f"Lessons for this course require a {required_tier} plan.",
-                        "required_tier": required_tier,
-                        "current_tier": user_tier,
-                    },
-                )
+    if current_user.role != "admin":
+        course = crud_course.get_course(db, course_id)
+        if course:
+            required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
+            required_level = TIER_LEVELS.get(required_tier.lower(), 0)
+            if required_level > 0:
+                user_tier = get_user_tier(db, current_user)
+                user_level = TIER_LEVELS.get(user_tier, 0)
+                if user_level < required_level:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "message": f"Lessons for this course require a {required_tier} plan.",
+                            "required_tier": required_tier,
+                            "current_tier": user_tier,
+                        },
+                    )
     return crud_lesson.get_lessons_by_course(db, course_id, skip=skip, limit=limit)
 
 
@@ -63,23 +64,23 @@ def get_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    # Feature gate: check parent course tier
-    course = crud_course.get_course(db, lesson.course_id)
-    if course:
-        required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
-        required_level = TIER_LEVELS.get(required_tier.lower(), 0)
-        if required_level > 0:
-            user_tier = get_user_tier(db, current_user)
-            user_level = TIER_LEVELS.get(user_tier, 0)
-            if user_level < required_level:
-                raise HTTPException(
-                    status_code=403,
-                    detail={
-                        "message": f"This lesson requires a {required_tier} plan.",
-                        "required_tier": required_tier,
-                        "current_tier": user_tier,
-                    },
-                )
+    if current_user.role != "admin":
+        course = crud_course.get_course(db, lesson.course_id)
+        if course:
+            required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
+            required_level = TIER_LEVELS.get(required_tier.lower(), 0)
+            if required_level > 0:
+                user_tier = get_user_tier(db, current_user)
+                user_level = TIER_LEVELS.get(user_tier, 0)
+                if user_level < required_level:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "message": f"This lesson requires a {required_tier} plan.",
+                            "required_tier": required_tier,
+                            "current_tier": user_tier,
+                        },
+                    )
     return lesson
 
 

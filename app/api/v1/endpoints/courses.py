@@ -36,22 +36,23 @@ def get_course(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    # Feature gate: check user tier vs course required tier
-    required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
-    required_level = TIER_LEVELS.get(required_tier.lower(), 0)
+    # Admins can access all courses regardless of tier
+    if current_user.role != "admin":
+        required_tier = course.get("required_tier", "free") if isinstance(course, dict) else "free"
+        required_level = TIER_LEVELS.get(required_tier.lower(), 0)
 
-    if required_level > 0:
-        user_tier = get_user_tier(db, current_user)
-        user_level = TIER_LEVELS.get(user_tier, 0)
-        if user_level < required_level:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "message": f"This course requires a {required_tier} plan or higher.",
-                    "required_tier": required_tier,
-                    "current_tier": user_tier,
-                },
-            )
+        if required_level > 0:
+            user_tier = get_user_tier(db, current_user)
+            user_level = TIER_LEVELS.get(user_tier, 0)
+            if user_level < required_level:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "message": f"This course requires a {required_tier} plan or higher.",
+                        "required_tier": required_tier,
+                        "current_tier": user_tier,
+                    },
+                )
 
     return course
 

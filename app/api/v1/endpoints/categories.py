@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from uuid import UUID
 from typing import List
 
@@ -41,7 +42,11 @@ def create_category(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    return crud_category.create_category(db, category)
+    try:
+        return crud_category.create_category(db, category)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"A category named '{category.name}' already exists.")
 
 
 @router.patch("/{category_id}", response_model=CategoryResponse)
@@ -51,7 +56,11 @@ def update_category(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    cat = crud_category.update_category(db, category_id, updates)
+    try:
+        cat = crud_category.update_category(db, category_id, updates)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"A category named '{updates.name}' already exists.")
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     return cat

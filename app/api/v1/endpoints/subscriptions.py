@@ -75,6 +75,37 @@ def create_subscription(
     return _enrich_sub(sub)
 
 
+@router.post("/cancel-active")
+def cancel_active_subscription(
+    body: dict,
+    db: Session = Depends(get_db),
+    x_internal_secret: Optional[str] = Header(None),
+):
+    """
+    Cancel all active subscriptions for a user by user_id.
+    Used as a fallback by the webhook when no provider_subscription_id match is found.
+    """
+    settings = get_settings()
+    if not x_internal_secret or x_internal_secret != settings.INTERNAL_API_SECRET:
+        raise HTTPException(status_code=403, detail="X-Internal-Secret required")
+
+    from uuid import UUID as _UUID
+    from app.schemas.subscription import SubscriptionUpdate
+    user_id = body.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+
+    subs = crud_subscription.get_subscriptions_by_user(db, _UUID(str(user_id)))
+    active = [s for s in subs if s.status in ("active", "trialing", "past_due")]
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    for sub in active:
+        crud_subscription.update_subscription(
+            db, sub.id, SubscriptionUpdate(status="canceled", canceled_at=now)
+        )
+    return {"canceled": len(active)}
+
+
 @router.patch("/by-provider-id/{provider_subscription_id}", response_model=SubscriptionResponse)
 def update_subscription_by_provider_id(
     provider_subscription_id: str,
