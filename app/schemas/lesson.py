@@ -9,6 +9,7 @@ class LessonBase(BaseModel):
     title: str
     content: Optional[str] = None
     video_url: Optional[str] = None
+    transcript: Optional[str] = None
     order_index: Optional[int] = 0
     resources: Optional[List[Any]] = []
 

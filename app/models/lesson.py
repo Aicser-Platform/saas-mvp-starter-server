@@ -14,6 +14,7 @@ class Lesson(Base):
     title = Column(Text, nullable=False)
     content = Column(Text)
     video_url = Column(Text)
+    transcript = Column(Text, nullable=True)
     order_index = Column(Integer, default=0)
     resources = Column(JSONB, default=list)  # [{title, url, type}]
 

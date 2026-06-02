@@ -5,7 +5,10 @@ from uuid import UUID, uuid4
 from typing import List
 from pydantic import BaseModel
 import os
+import io
 import shutil
+import subprocess
+import tempfile
 
 from app.db.database import get_db
 from app.schemas.lesson import LessonCreate, LessonUpdate, LessonResponse
@@ -179,3 +182,118 @@ async def upload_lesson_file(
         result["url"] = f"/api/v1/files/{result['blob_name']}"
 
     return JSONResponse(result)
+
+
+# ── Transcript generation (Whisper) ──────────────────────────────────────────
+
+@router.post("/{lesson_id}/generate-transcript", response_model=LessonResponse)
+async def generate_lesson_transcript(
+    lesson_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """
+    Download the lesson video from storage and transcribe it using OpenAI Whisper.
+    Stores the result in lesson.transcript. Admin only.
+    """
+    lesson = crud_lesson.get_lesson(db, lesson_id)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    if not lesson.video_url:
+        raise HTTPException(status_code=400, detail="This lesson has no video to transcribe")
+
+    video_url = lesson.video_url
+    if "youtube.com" in video_url or "youtu.be" in video_url:
+        raise HTTPException(status_code=400, detail="YouTube videos cannot be transcribed via this endpoint")
+
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+
+    # Download video bytes from storage
+    from app.core.storage import get_storage_backend, AzureBlobStorageBackend
+    storage = get_storage_backend()
+
+    try:
+        # Resolve blob_name from proxy URL: /api/v1/files/{blob_name}
+        if "/api/v1/files/" in video_url:
+            blob_name = video_url.split("/api/v1/files/", 1)[1]
+        elif video_url.startswith("/uploads/"):
+            blob_name = video_url[len("/uploads/"):]
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported video URL format for transcription")
+
+        video_bytes = storage.download_bytes(blob_name)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to download video: {e}")
+
+    # Extract audio with ffmpeg if video exceeds 25 MB limit
+    WHISPER_LIMIT = 25 * 1024 * 1024
+    audio_bytes: bytes
+    audio_name: str
+
+    if len(video_bytes) > WHISPER_LIMIT:
+        # Write video to temp file, extract compressed mono audio via ffmpeg
+        ext = os.path.splitext(blob_name)[1] or ".mp4"
+        try:
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp_video:
+                tmp_video.write(video_bytes)
+                tmp_video_path = tmp_video.name
+
+            tmp_audio_path = tmp_video_path.replace(ext, ".mp3")
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", tmp_video_path,
+                    "-vn",               # drop video stream
+                    "-acodec", "libmp3lame",
+                    "-ar", "16000",      # 16 kHz — sufficient for speech
+                    "-ac", "1",          # mono
+                    "-b:a", "32k",       # low bitrate — speech only
+                    tmp_audio_path,
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+            with open(tmp_audio_path, "rb") as f:
+                audio_bytes = f.read()
+            audio_name = "audio.mp3"
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=502, detail=f"Audio extraction failed: {e.stderr.decode()[:200]}")
+        finally:
+            for p in (tmp_video_path, tmp_audio_path):
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
+
+        if len(audio_bytes) > WHISPER_LIMIT:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Extracted audio is still {round(len(audio_bytes)/1024/1024, 1)} MB after compression. Video may be too long for Whisper."
+            )
+    else:
+        audio_bytes = video_bytes
+        audio_name = f"audio{os.path.splitext(blob_name)[1] or '.mp4'}"
+
+    # Transcribe with Whisper
+    try:
+        import openai as openai_lib
+        client = openai_lib.OpenAI(api_key=openai_key)
+
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = audio_name
+
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Whisper transcription failed: {e}")
+
+    lesson.transcript = result.text
+    db.commit()
+    db.refresh(lesson)
+    return lesson

@@ -10,3 +10,5 @@ python-jose[cryptography]
 python-multipart
 stripe
 bakong-khqr
+openai
+httpx

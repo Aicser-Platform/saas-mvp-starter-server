@@ -69,6 +69,11 @@ class LocalStorageBackend(StorageBackend):
         # Local storage doesn't need signed URLs — just return the path
         return file_path
 
+    def download_bytes(self, file_path: str) -> bytes:
+        full_path = os.path.join(self.upload_dir, file_path.lstrip("/"))
+        with open(full_path, "rb") as f:
+            return f.read()
+
 
 # ── Azure Blob Storage ───────────────────────────────────────────────────────
 
@@ -143,6 +148,12 @@ class AzureBlobStorageBackend(StorageBackend):
             "content_type": file.content_type,
             "blob_name": blob_name,
         }
+
+    def download_bytes(self, blob_name: str) -> bytes:
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container_name, blob=blob_name
+        )
+        return blob_client.download_blob().readall()
 
     def get_signed_url(self, blob_name: str, expiry_hours: int = 4) -> str:
         from azure.storage.blob import generate_blob_sas, BlobSasPermissions
