@@ -173,15 +173,8 @@ async def upload_lesson_file(
                    f"Supported: MP4, WebM, OGG, MOV, WMV, PDF, DOC, DOCX, JPG, PNG, WebP, GIF."
         )
 
-    from app.core.storage import get_storage_backend, AzureBlobStorageBackend
-    storage = get_storage_backend()
-    result = await storage.upload(file)
-
-    # For Azure: return a proxy URL that goes through our signed-URL endpoint
-    # so the browser never hits the raw blob URL (which requires public access)
-    if isinstance(storage, AzureBlobStorageBackend) and "blob_name" in result:
-        result["url"] = f"/api/v1/files/{result['blob_name']}"
-
+    from app.core.storage import upload_file
+    result = await upload_file(file)
     return JSONResponse(result)
 
 
@@ -211,20 +204,18 @@ async def generate_lesson_transcript(
     if not openai_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
-    # Download video bytes from storage
-    from app.core.storage import get_storage_backend, AzureBlobStorageBackend
-    storage = get_storage_backend()
+    # Download video bytes from local storage
+    from app.core.storage import download_bytes
 
     try:
-        # Resolve blob_name from proxy URL: /api/v1/files/{blob_name}
-        if "/api/v1/files/" in video_url:
-            blob_name = video_url.split("/api/v1/files/", 1)[1]
-        elif video_url.startswith("/uploads/"):
+        if video_url.startswith("/uploads/"):
             blob_name = video_url[len("/uploads/"):]
+        elif "/api/v1/files/" in video_url:
+            blob_name = video_url.split("/api/v1/files/", 1)[1]
         else:
             raise HTTPException(status_code=400, detail="Unsupported video URL format for transcription")
 
-        video_bytes = storage.download_bytes(blob_name)
+        video_bytes = download_bytes(blob_name)
     except HTTPException:
         raise
     except Exception as e:
