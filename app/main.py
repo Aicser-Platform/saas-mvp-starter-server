@@ -24,10 +24,10 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/v1")
 
-# Serve uploaded files (videos, PDFs) at /uploads/<filename>
+# Serve uploaded files locally only (Vercel serverless has no persistent filesystem)
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+if os.path.isdir(UPLOAD_DIR):
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/")
