@@ -10,7 +10,8 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mvp_saas")
 
 # NullPool disables connection pooling — required for serverless (Vercel) environments
-engine = create_engine(DATABASE_URL, poolclass=NullPool)
+# sslmode=require is needed for Supabase
+engine = create_engine(DATABASE_URL, poolclass=NullPool, connect_args={"sslmode": "require"})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
